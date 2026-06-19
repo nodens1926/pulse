@@ -3,10 +3,10 @@
     Windows: tree /F /A
 
 # Очистить кеш сборки и пересобрать
-docker compose build --no-cache backend
-docker compose up --build
+    docker compose build --no-cache backend
+    docker compose up --build
 
 # Сборка проекта в корне
-docker compose up -d
+    docker compose up -d
 
 
