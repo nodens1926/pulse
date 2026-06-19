@@ -10,9 +10,7 @@
     Windows: tree /F /A
 
 # Сикреты:
-/.env
-/frontend/.htpasswd
-/frontend/.env.production
+/.env, /frontend/.htpasswd, /frontend/.env.production
 
 
     
