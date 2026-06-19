@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: pulse-postgres
+    environment:
+      POSTGRES_USER: pulse
+      POSTGRES_PASSWORD: pulse123
+      POSTGRES_DB: pulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - pulse-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: pulse-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - pulse-network
+
+  backend:
+    build: ./backend
+    container_name: pulse-backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgresql://pulse:pulse123@postgres:5432/pulse
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app:app --host 0.0.0.0 --port 8000 --reload &
+             celery -A tasks worker --loglevel=info"
+    networks:
+      - pulse-network
+
+  frontend:
+    build: ./frontend
+    container_name: pulse-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - pulse-network
+
+volumes:
+  postgres_data:
+
+networks:
+  pulse-network:
+    driver: bridge
