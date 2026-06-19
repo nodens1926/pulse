@@ -24,3 +24,23 @@ dist/
 
 # Docker
 *.log
+
+# Файлы с паролями
+.htpasswd
+*.htpasswd
+.env.production
+.env.local
+
+# PyCharm (у вас уже есть .idea/, но добавим на всякий случай)
+*.iml
+
+# Alembic (миграции — их нельзя игнорировать, но если есть папка alembic/ — оставьте)
+# !alembic/       # если хотите сохранить миграции в Git
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets (общее правило)
+secrets/
+*.secret
