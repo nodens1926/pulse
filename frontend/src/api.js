@@ -15,3 +15,5 @@ export const search = (query) =>
 
 export const addSite = (url) =>
     API.post(SITES_ENDPOINT, { url });
+
+export const getStatus = (id) => API.get(`/status?site_id=${id}`);
