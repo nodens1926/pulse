@@ -1,10 +1,17 @@
 import axios from "axios";
 
+export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "/api";
+
+export const SEARCH_ENDPOINT = "/search";
+export const SITES_ENDPOINT = "/sites";
+
 const API = axios.create({
-    baseURL: "/api",
+    baseURL: API_BASE_URL,
     headers: { "Content-Type": "application/json" },
 });
 
-export const search = (query) => API.get(`/search?q=${query}`);
-export const addSite = (url) => API.post("/sites", { url });
-export const getStatus = (id) => API.get(`/status?site_id=${id}`);
+export const search = (query) =>
+    API.get(`${SEARCH_ENDPOINT}?q=${encodeURIComponent(query)}`);
+
+export const addSite = (url) =>
+    API.post(SITES_ENDPOINT, { url });
