@@ -1,9 +1,28 @@
+# Веб-фреймворк
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# База данных
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+alembic==1.14.1
+
+# Очереди задач
+celery==5.5.2
+redis==5.2.1
+
+# Парсинг HTML (уже есть)
 beautifulsoup4==4.15.0
-certifi==2026.6.17
-charset-normalizer==3.4.7
-idna==3.18
 lxml==6.1.1
 requests==2.34.2
-soupsieve==2.8.4
+
+# Обработка текста (ML)
+sentence-transformers==3.0.1
+spacy==3.8.5
+pymorphy3==2.0.6
+numpy==1.26.4
+
+# Утилиты
+python-dotenv==1.0.1
 typing_extensions==4.15.0
-urllib3==2.7.0
+pydantic-settings==2.1.0
