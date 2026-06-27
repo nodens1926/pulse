@@ -1,11 +1,25 @@
-FROM node:18-alpine AS builder
+# Сборка фронтенда
+FROM node:22-alpine AS builder
+
 WORKDIR /app
+
+# Копируем package.json и устанавливаем зависимости
 COPY package*.json ./
 RUN npm install
+
+# Копируем исходники и собираем
 COPY . .
 RUN npm run build
 
+# Продакшен-сервер (Nginx)
 FROM nginx:alpine
-COPY --from=builder /app/build /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Копируем собранные файлы в Nginx
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Копируем конфиг Nginx (если есть)
+# COPY nginx.conf /etc/nginx/conf.d/default.conf
+
 EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
