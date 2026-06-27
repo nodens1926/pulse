@@ -1,8 +1,9 @@
-version: '3.8'
-
 services:
+  # ============================================================
+  # 1. PostgreSQL с расширением pgvector для хранения эмбеддингов
+  # ============================================================
   postgres:
-    image: postgres:15
+    image: ankane/pgvector:latest
     container_name: pulse-postgres
     environment:
       POSTGRES_USER: pulse
@@ -12,9 +13,19 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - pulse-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulse -d pulse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
+  # ============================================================
+  # 2. Redis — брокер очередей для Celery
+  # ============================================================
   redis:
     image: redis:7-alpine
     container_name: pulse-redis
@@ -22,29 +33,72 @@ services:
       - "6379:6379"
     networks:
       - pulse-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
+  # ============================================================
+  # 3. Backend — FastAPI (веб-сервер)
+  # ============================================================
   backend:
-    build: ./backend
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: pulse-backend
     ports:
       - "8000:8000"
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://pulse:pulse123@postgres:5432/pulse
       REDIS_URL: redis://redis:6379/0
+      PYTHONPATH: /app
     volumes:
       - ./backend:/app
     command: >
-      sh -c "alembic upgrade head &&
-             uvicorn app:app --host 0.0.0.0 --port 8000 --reload &
-             celery -A tasks worker --loglevel=info"
+      sh -c "uvicorn app:app --host 0.0.0.0 --port 8000 --reload"
+      # Временно убрали: alembic upgrade head &&
     networks:
       - pulse-network
+    restart: unless-stopped
 
+  # ============================================================
+  # 4. Celery Worker — фоновый воркер для индексации
+  # ============================================================
+  worker:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pulse-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://pulse:pulse123@postgres:5432/pulse
+      REDIS_URL: redis://redis:6379/0
+      PYTHONPATH: /app
+    volumes:
+      - ./backend:/app
+    command: celery -A tasks worker --loglevel=info --concurrency=1
+    networks:
+      - pulse-network
+    restart: unless-stopped
+
+  # ============================================================
+  # 5. Frontend — React + Nginx
+  # ============================================================
   frontend:
-    build: ./frontend
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: pulse-frontend
     ports:
       - "80:80"
@@ -52,7 +106,11 @@ services:
       - backend
     networks:
       - pulse-network
+    restart: unless-stopped
 
+# ============================================================
+# Volumes и Networks
+# ============================================================
 volumes:
   postgres_data:
 
