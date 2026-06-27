@@ -11,7 +11,8 @@ from config import (
     settings,
     check_connections,
     redis_client,
-    get_model_info
+    get_model_info,
+    GLOBAL_SEARCH_INITIALIZED
 )
 
 from models import Site, Page
@@ -66,20 +67,24 @@ async def startup_event():
         logger.error("❌ База данных недоступна!")
         return
 
+    # Инициализация глобальных параметров поиска
     logger.info("🔧 Инициализация глобальных параметров поиска...")
     db = next(get_db())
     try:
+        from indexer import initialize_global_search_params
         result = initialize_global_search_params(db)
         if result.get("success"):
             logger.info(f"✅ Глобальные параметры поиска инициализированы: "
-                        f"n_doc={result.get('n_doc', 0)}, "
-                        f"vocab_size={result.get('vocabulary_size', 0)}")
+                       f"n_doc={result.get('n_doc', 0)}, "
+                       f"vocab_size={result.get('vocabulary_size', 0)}")
         else:
             logger.error(f"❌ Ошибка инициализации: {result.get('error')}")
     except Exception as e:
         logger.error(f"❌ Ошибка при инициализации параметров поиска: {e}")
     finally:
         db.close()
+
+
 
     nlp_info = get_nlp_info()
     logger.info(f"📚 NLP инструменты: pymorphy3={nlp_info.get('pymorphy3_loaded')}, "
