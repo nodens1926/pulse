@@ -44,7 +44,7 @@ services:
   # 3. Backend — FastAPI (веб-сервер)
   # ============================================================
   backend:
-    build: 
+    build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: pulse-backend
@@ -63,7 +63,6 @@ services:
       - ./backend:/app
     command: >
       sh -c "uvicorn app:app --host 0.0.0.0 --port 8000 --reload"
-      # Временно убрали: alembic upgrade head &&
     networks:
       - pulse-network
     restart: unless-stopped
@@ -72,7 +71,7 @@ services:
   # 4. Celery Worker — фоновый воркер для индексации
   # ============================================================
   worker:
-    build: 
+    build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: pulse-worker
@@ -96,7 +95,7 @@ services:
   # 5. Frontend — React + Nginx
   # ============================================================
   frontend:
-    build: 
+    build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: pulse-frontend
