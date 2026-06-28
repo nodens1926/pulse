@@ -18,16 +18,16 @@ function AdminPanel() {
         setLoading(true);
         setMessage("");
 
-        try {
-            const response = await addSite(siteUrl.trim());
-            setMessage(response.data.message || "Сайт успешно добавлен");
-            setIsSuccess(true);
-            setSiteUrl("");
-        } catch (err) {
-            const serverMsg = err.response?.data?.message;
-            setMessage(serverMsg || "Ошибка при добавлении сайта");
-            setIsSuccess(false);
-        } finally {
+	try {
+	    await addSite(siteUrl.trim());
+	    setMessage("Сайт успешно добавлен");
+	    setIsSuccess(true);
+	    setSiteUrl("");
+	} catch (err) {
+	    const serverMsg = err.response?.data?.detail;
+	    setMessage(serverMsg || "Ошибка при добавлении сайта");
+	    setIsSuccess(false);
+	} finally {
             setLoading(false);
         }
     };

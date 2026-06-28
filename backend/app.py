@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware  # <-- ДОБАВИТЬ ЭТУ СТРОКУ
 from sqlalchemy.orm import Session
 from datetime import datetime
 import logging
@@ -17,6 +18,15 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Pulse Search API", version="1.0")
+
+# ДОБАВИТЬ ЭТУ СЕКЦИЮ - CORS для фронтенда
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost", "http://localhost:80", "http://127.0.0.1"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.post("/api/sites", response_model=SiteResponse)
 def add_site(site: SiteCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
@@ -54,11 +64,19 @@ def search_pages(q: str, limit: int = 10, db: Session = Depends(get_db)):
     for page_id in page_ids:
         page = db.query(Page).filter(Page.id == page_id).first()
         if page:
+            # ВЫРЕЗАЕМ СНИППЕТ (первые 200 символов текста)
+            snippet = None
+            if page.content:
+                # Очищаем от лишних пробелов и берём первые 200 символов
+                clean_text = ' '.join(page.content.split())
+                snippet = clean_text[:200] + ("..." if len(clean_text) > 200 else "")
+            
             results.append(SearchResult(
                 page_id=page.id,
                 url=page.url,
                 title=page.title,
-                score=page.relevantnost or 0.0
+                score=page.relevantnost or 0.0,
+                snippet=snippet
             ))
     
     return SearchResponse(results=results, total=len(results))

@@ -124,31 +124,32 @@ function SearchResults() {
                   Found {results.length} result{results.length !== 1 ? 's' : ''}
                 </p>
                 <div className="space-y-4">
-                  {results.map((item, index) => (
-                    <div
-                      key={index}
-                      className="bg-white border border-[rgb(232,228,222)] shadow-sm rounded-2xl p-6 hover:shadow-md transition-shadow"
-                    >
-                      <a
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[rgb(30,58,95)] font-semibold text-lg hover:underline"
-                      >
-                        {item.title || item.url}
-                      </a>
-                      {item.url && (
-                        <div className="text-[rgb(45,212,168)] text-sm mt-1 truncate">
-                          {item.url}
-                        </div>
-                      )}
-                      {item.snippet && (
-                        <p className="text-[rgba(44,44,44,0.6)] mt-2">
-                          {item.snippet}
-                        </p>
-                      )}
-                    </div>
-                  ))}
+			{results.map((item, index) => (
+			  <div
+			    key={index}
+			    className="bg-white border border-[rgb(232,228,222)] shadow-sm rounded-2xl p-6 hover:shadow-md transition-shadow"
+			  >
+			    <a
+			      href={item.url}
+			      target="_blank"
+			      rel="noopener noreferrer"
+			      className="text-[rgb(30,58,95)] font-semibold text-lg hover:underline"
+			    >
+			      {item.title || item.url}
+			    </a>
+			    {item.url && (
+			      <div className="text-[rgb(45,212,168)] text-sm mt-1 truncate">
+				{item.url}
+			      </div>
+			    )}
+			    {/* СНИППЕТ - первые 200 символов текста */}
+			    {item.snippet && (
+			      <p className="text-[rgba(44,44,44,0.6)] text-sm mt-2 line-clamp-3">
+				{item.snippet}
+			      </p>
+			    )}
+			  </div>
+			))}
                 </div>
               </div>
             )}

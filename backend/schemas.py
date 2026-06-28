@@ -25,6 +25,7 @@ class SearchResult(BaseModel):
     url: str
     title: Optional[str]
     score: float
+    snippet: Optional[str] = None  
 
 class SearchResponse(BaseModel):
     results: List[SearchResult]
