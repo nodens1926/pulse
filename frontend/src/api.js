@@ -17,3 +17,9 @@ export const addSite = (url) =>
     API.post(SITES_ENDPOINT, { url });
 
 export const getStatus = (id) => API.get(`/status/${id}`);
+
+export const getAllStatus = () => API.get('/status');
+
+// НОВАЯ ФУНКЦИЯ — ПОХОЖИЕ СТРАНИЦЫ
+export const getSimilarPages = (pageId, limit = 5) =>
+    API.get(`/similar/${pageId}?limit=${limit}`);

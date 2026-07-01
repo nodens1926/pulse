@@ -8,7 +8,8 @@ from database import get_db, engine
 from models import Site, Page
 from schemas import SiteCreate, SiteResponse, SearchRequest, SearchResponse, SearchResult, StatusResponse
 from tasks import index_site, recalculate_all
-from ml import search
+from ml import search, find_similar_pages
+from config import DATABASE_URL
 
 # СОЗДАЁМ ТАБЛИЦЫ ПРИ ЗАПУСКЕ
 from database import Base
@@ -121,3 +122,157 @@ def reindex_all(background_tasks: BackgroundTasks):
 @app.get("/")
 def root():
     return {"message": "Pulse Search API", "version": "1.0"}
+
+
+# ============================================================
+# НОВЫЙ ЭНДПОИНТ ДЛЯ ПОХОЖИХ СТРАНИЦ
+# ============================================================
+
+@app.get("/api/similar/{page_id}")
+def get_similar_pages(page_id: int, limit: int = 10, db: Session = Depends(get_db)):
+    """
+    Возвращает похожие страницы для указанной страницы.
+    
+    Args:
+        page_id: ID страницы
+        limit: количество похожих страниц (по умолчанию 10)
+    
+    Returns:
+        {
+            "page_id": int,
+            "similar": [
+                {
+                    "id": int,
+                    "url": str,
+                    "title": str,
+                    "score": float
+                }
+            ]
+        }
+    """
+    # Проверяем, существует ли страница
+    page = db.query(Page).filter(Page.id == page_id).first()
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+    
+    # Проверяем, есть ли у страницы эмбеддинг
+    if not page.embedding:
+        raise HTTPException(
+            status_code=400, 
+            detail="Page has no embedding. Please reindex the site."
+        )
+    
+    try:
+        # Ищем похожие страницы
+        # use_tfidf_stage=True — используем TF-IDF + SBERT для скорости
+        similar = find_similar_pages(
+            db_url=DATABASE_URL,
+            ranked_page_ids=[page_id],
+            top_n_per_page=limit,
+            use_tfidf_stage=True
+        )
+        
+        similar_ids = similar.get(page_id, [])
+        
+        # Загружаем данные страниц
+        results = []
+        for pid in similar_ids:
+            p = db.query(Page).filter(Page.id == pid).first()
+            if p:
+                results.append({
+                    "id": p.id,
+                    "url": p.url,
+                    "title": p.title,
+                    "score": p.relevantnost or 0.0
+                })
+        
+        return {
+            "page_id": page_id,
+            "similar": results,
+            "total": len(results)
+        }
+        
+    except ValueError as e:
+        # Если глобальные параметры не инициализированы
+        logger.error(f"Ошибка при поиске похожих страниц: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"ML models not initialized: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при поиске похожих страниц: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error finding similar pages: {str(e)}"
+        )
+
+
+@app.get("/api/similar/batch")
+def get_similar_pages_batch(page_ids: str, limit: int = 5, db: Session = Depends(get_db)):
+    """
+    Возвращает похожие страницы для нескольких страниц одновременно.
+    
+    Args:
+        page_ids: список ID через запятую (например: "1,2,3")
+        limit: количество похожих страниц для каждой (по умолчанию 5)
+    
+    Returns:
+        {
+            "results": {
+                "1": [similar_pages],
+                "2": [similar_pages]
+            }
+        }
+    """
+    try:
+        # Парсим список ID
+        ids = [int(pid.strip()) for pid in page_ids.split(',') if pid.strip()]
+        if not ids:
+            raise HTTPException(status_code=400, detail="No valid page IDs provided")
+        
+        # Проверяем, что все страницы существуют
+        pages = db.query(Page).filter(Page.id.in_(ids)).all()
+        existing_ids = [p.id for p in pages]
+        
+        if not existing_ids:
+            raise HTTPException(status_code=404, detail="No valid pages found")
+        
+        # Ищем похожие страницы
+        similar = find_similar_pages(
+            db_url=DATABASE_URL,
+            ranked_page_ids=existing_ids,
+            top_n_per_page=limit,
+            use_tfidf_stage=True
+        )
+        
+        # Формируем ответ
+        result = {}
+        for pid in existing_ids:
+            similar_ids = similar.get(pid, [])
+            pages_data = []
+            for sid in similar_ids:
+                p = db.query(Page).filter(Page.id == sid).first()
+                if p:
+                    pages_data.append({
+                        "id": p.id,
+                        "url": p.url,
+                        "title": p.title,
+                        "score": p.relevantnost or 0.0
+                    })
+            result[str(pid)] = pages_data
+        
+        return {"results": result}
+        
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid page IDs: {str(e)}")
+    except Exception as e:
+        logger.error(f"Ошибка в batch поиске похожих страниц: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/reload")
+def reload_globals(db: Session = Depends(get_db)):
+    """Перезагружает глобальные переменные из БД"""
+    from ml import calculate_tfidf
+    calculate_tfidf(db)
+    logger.info("Глобальные переменные перезагружены")
+    return {"status": "success"}

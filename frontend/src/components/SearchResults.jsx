@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { search } from "../api";
+import { search, getSimilarPages } from "../api";
 
 function SearchResults() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -11,6 +11,10 @@ function SearchResults() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   
+  // Состояние для похожих страниц
+  const [similarMap, setSimilarMap] = useState({});
+  const [loadingSimilar, setLoadingSimilar] = useState({});
+  
   // Предотвращаем дублирующиеся запросы
   const fetchingRef = useRef(false);
   const lastQueryRef = useRef("");
@@ -18,7 +22,6 @@ function SearchResults() {
   const fetchResults = useCallback(async (searchQuery) => {
     if (!searchQuery.trim()) return;
     
-    // Если уже идёт запрос или тот же запрос уже выполняется — пропускаем
     if (fetchingRef.current || lastQueryRef.current === searchQuery) {
       return;
     }
@@ -46,9 +49,26 @@ function SearchResults() {
     }
   }, []);
 
+  // Загрузка похожих страниц
+  const fetchSimilar = async (pageId) => {
+    // Если уже загружено или грузится — пропускаем
+    if (similarMap[pageId] || loadingSimilar[pageId]) return;
+    
+    setLoadingSimilar(prev => ({ ...prev, [pageId]: true }));
+    
+    try {
+      const response = await getSimilarPages(pageId, 5);
+      const similar = response.data.similar || [];
+      setSimilarMap(prev => ({ ...prev, [pageId]: similar }));
+    } catch (err) {
+      console.error("Ошибка загрузки похожих страниц:", err);
+    } finally {
+      setLoadingSimilar(prev => ({ ...prev, [pageId]: false }));
+    }
+  };
+
   useEffect(() => {
     setQuery(queryFromUrl);
-    // Сбрасываем ref при новом запросе
     if (queryFromUrl) {
       fetchingRef.current = false;
       fetchResults(queryFromUrl);
@@ -88,7 +108,6 @@ function SearchResults() {
               </span>
             </Link>
 
-            {/* Поисковая строка в хедере страницы результатов */}
             <form onSubmit={handleSubmit} className="flex items-center bg-white border border-[rgb(232,228,222)] shadow-sm gap-3 py-2 px-4 rounded-[20px] w-full max-w-md">
               <svg className="w-5 h-5 text-[rgba(44,44,44,0.4)]/40 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <circle cx="11" cy="11" r="8" strokeWidth="2" />
@@ -156,12 +175,50 @@ function SearchResults() {
                           {item.url}
                         </div>
                       )}
-                      {/* СНИППЕТ - первые 200 символов текста */}
                       {item.snippet && (
                         <p className="text-[rgba(44,44,44,0.6)] text-sm mt-2 line-clamp-3">
                           {item.snippet}
                         </p>
                       )}
+
+                      {/* === ПОХОЖИЕ СТРАНИЦЫ === */}
+                      <div className="mt-3 pt-3 border-t border-[rgb(232,228,222)]">
+                        {similarMap[item.page_id] ? (
+                          // Показываем похожие страницы
+                          <div>
+                            <p className="text-xs text-[rgba(44,44,44,0.4)] font-medium uppercase tracking-wider mb-2">
+                              Similar pages
+                            </p>
+                            <div className="space-y-1">
+                              {similarMap[item.page_id].map((similar, idx) => (
+                                <a
+                                  key={idx}
+                                  href={similar.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block text-sm text-[rgb(30,58,95)] hover:underline truncate"
+                                >
+                                  {similar.title || similar.url}
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        ) : loadingSimilar[item.page_id] ? (
+                          // Лоадер
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-[rgb(45,212,168)] border-t-transparent rounded-full animate-spin" />
+                            <span className="text-xs text-[rgba(44,44,44,0.4)]">Loading similar...</span>
+                          </div>
+                        ) : (
+                          // Кнопка "Show similar"
+                          <button
+                            onClick={() => fetchSimilar(item.page_id)}
+                            className="text-xs text-[rgba(44,44,44,0.4)] hover:text-[rgb(45,212,168)] transition-colors"
+                          >
+                            Show similar pages →
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

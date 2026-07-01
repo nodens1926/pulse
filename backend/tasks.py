@@ -199,6 +199,19 @@ def recalculate_all():
     try:
         calculate_tfidf(db)
         compute_embeddings(db)
+        
+        # === ДОБАВЛЯЕМ ЭТОТ БЛОК ===
+        # Перезагружаем глобальные переменные в бекенде
+        try:
+            response = requests.post('http://backend:8000/api/reload', timeout=5)
+            if response.status_code == 200:
+                logger.info("Глобальные переменные перезагружены после реиндекса")
+            else:
+                logger.warning(f"Ошибка перезагрузки: {response.status_code}")
+        except Exception as e:
+            logger.warning(f"Не удалось перезагрузить переменные: {e}")
+        # ============================
+            
         return {"status": "success"}
     finally:
         db.close()

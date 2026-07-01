@@ -1,16 +1,95 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
+import axios from "axios";
 
 function HomePage() {
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
+
+  // Состояния для статистики
+  const [stats, setStats] = useState({
+    sites: 0,
+    pages: 0,
+    lastSync: "Loading...",
+    queries: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  // Загрузка статистики при монтировании
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await axios.get('/api/status');
+        const sites = response.data || [];
+        
+        // Считаем общее количество страниц
+        let totalPages = 0;
+        sites.forEach(site => {
+          totalPages += site.pages_indexed || 0;
+        });
+
+        // Находим последнюю синхронизацию (самый свежий сайт)
+        let lastSync = "Never";
+        if (sites.length > 0) {
+          // Сортируем по дате добавления
+          const sorted = [...sites].sort((a, b) => 
+            new Date(b.date_added) - new Date(a.date_added)
+          );
+          if (sorted[0]?.date_added) {
+            const date = new Date(sorted[0].date_added);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMins / 60);
+            const diffDays = Math.floor(diffHours / 24);
+            
+            if (diffDays > 0) {
+              lastSync = `${diffDays}d ago`;
+            } else if (diffHours > 0) {
+              lastSync = `${diffHours}h ago`;
+            } else if (diffMins > 0) {
+              lastSync = `${diffMins}m ago`;
+            } else {
+              lastSync = "Just now";
+            }
+          }
+        }
+
+        setStats({
+          sites: sites.length,
+          pages: totalPages,
+          lastSync: lastSync,
+          queries: sites.length * 100 // Примерная заглушка (можно убрать или заменить)
+        });
+      } catch (error) {
+        console.error("Ошибка загрузки статистики:", error);
+        setStats({
+          sites: 0,
+          pages: 0,
+          lastSync: "Error",
+          queries: 0
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (query.trim()) {
       navigate(`/search?q=${encodeURIComponent(query.trim())}`);
     }
+  };
+
+  // Форматирование чисел (например, 1250 → 1.2K)
+  const formatNumber = (num) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toString();
   };
 
   return (
@@ -126,7 +205,7 @@ function HomePage() {
                     className="font-semibold text-[rgb(19,19,19)] text-xl leading-7"
                     style={{ fontFamily: '"Space Grotesk", sans-serif' }}
                   >
-                    24
+                    {loading ? "..." : formatNumber(stats.sites)}
                   </p>
                   <p className="text-[rgba(44,44,44,0.5)]/50 text-xs leading-4">Sites Indexed</p>
                 </div>
@@ -142,7 +221,7 @@ function HomePage() {
                     className="font-semibold text-[rgb(19,19,19)] text-xl leading-7"
                     style={{ fontFamily: '"Space Grotesk", sans-serif' }}
                   >
-                    128K
+                    {loading ? "..." : formatNumber(stats.pages)}
                   </p>
                   <p className="text-[rgba(44,44,44,0.5)]/50 text-xs leading-4">Pages Crawled</p>
                 </div>
@@ -158,7 +237,7 @@ function HomePage() {
                     className="font-semibold text-[rgb(19,19,19)] text-xl leading-7"
                     style={{ fontFamily: '"Space Grotesk", sans-serif' }}
                   >
-                    2m ago
+                    {loading ? "..." : stats.lastSync}
                   </p>
                   <p className="text-[rgba(44,44,44,0.5)]/50 text-xs leading-4">Last Sync</p>
                 </div>
@@ -174,7 +253,7 @@ function HomePage() {
                     className="font-semibold text-[rgb(19,19,19)] text-xl leading-7"
                     style={{ fontFamily: '"Space Grotesk", sans-serif' }}
                   >
-                    4.2K
+                    {loading ? "..." : formatNumber(stats.queries)}
                   </p>
                   <p className="text-[rgba(44,44,44,0.5)]/50 text-xs leading-4">Search Queries</p>
                 </div>
