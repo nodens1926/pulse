@@ -5,6 +5,7 @@ from typing import Optional, List
 class SiteCreate(BaseModel):
     url: HttpUrl
     name: Optional[str] = None
+    max_pages: Optional[int] = 10  # Добавляем параметр для количества страниц
 
 class SiteResponse(BaseModel):
     id: int
@@ -25,7 +26,7 @@ class SearchResult(BaseModel):
     url: str
     title: Optional[str]
     score: float
-    snippet: Optional[str] = None
+    snippet: Optional[str] = None  
 
 class SearchResponse(BaseModel):
     results: List[SearchResult]

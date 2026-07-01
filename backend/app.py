@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -29,8 +29,13 @@ app.add_middleware(
 )
 
 @app.post("/api/sites", response_model=SiteResponse)
-def add_site(site: SiteCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    """Добавляет сайт в очередь на индексацию"""
+def add_site(
+    site: SiteCreate, 
+    background_tasks: BackgroundTasks, 
+    max_pages: int = Query(10, ge=1, le=50, description="Максимальное количество страниц для индексации"),
+    db: Session = Depends(get_db)
+):
+    """Добавляет сайт в очередь на индексацию с указанием количества страниц"""
     # Проверяем, существует ли сайт
     existing = db.query(Site).filter(Site.url == str(site.url)).first()
     if existing:
@@ -46,8 +51,8 @@ def add_site(site: SiteCreate, background_tasks: BackgroundTasks, db: Session = 
     db.commit()
     db.refresh(db_site)
     
-    # Запускаем индексацию в фоне
-    index_site.delay(db_site.id)
+    # Запускаем индексацию в фоне с указанным количеством страниц
+    index_site.delay(db_site.id, max_pages=max_pages)
     
     return db_site
 
