@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { search } from "../api";
 
@@ -10,10 +10,21 @@ function SearchResults() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  
+  // Предотвращаем дублирующиеся запросы
+  const fetchingRef = useRef(false);
+  const lastQueryRef = useRef("");
 
   const fetchResults = useCallback(async (searchQuery) => {
     if (!searchQuery.trim()) return;
+    
+    // Если уже идёт запрос или тот же запрос уже выполняется — пропускаем
+    if (fetchingRef.current || lastQueryRef.current === searchQuery) {
+      return;
+    }
 
+    fetchingRef.current = true;
+    lastQueryRef.current = searchQuery;
     setLoading(true);
     setError("");
     setResults([]);
@@ -31,12 +42,15 @@ function SearchResults() {
       setError("Ошибка сети. Проверьте подключение к серверу.");
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   }, []);
 
   useEffect(() => {
     setQuery(queryFromUrl);
+    // Сбрасываем ref при новом запросе
     if (queryFromUrl) {
+      fetchingRef.current = false;
       fetchResults(queryFromUrl);
     }
   }, [queryFromUrl, fetchResults]);
@@ -117,39 +131,39 @@ function SearchResults() {
               </div>
             )}
 
-            {/* Результаты */}
+            {/* Результаты поиска */}
             {!loading && !error && results.length > 0 && (
               <div>
                 <p className="text-sm text-[rgba(44,44,44,0.5)] mb-4">
                   Found {results.length} result{results.length !== 1 ? 's' : ''}
                 </p>
                 <div className="space-y-4">
-			{results.map((item, index) => (
-			  <div
-			    key={index}
-			    className="bg-white border border-[rgb(232,228,222)] shadow-sm rounded-2xl p-6 hover:shadow-md transition-shadow"
-			  >
-			    <a
-			      href={item.url}
-			      target="_blank"
-			      rel="noopener noreferrer"
-			      className="text-[rgb(30,58,95)] font-semibold text-lg hover:underline"
-			    >
-			      {item.title || item.url}
-			    </a>
-			    {item.url && (
-			      <div className="text-[rgb(45,212,168)] text-sm mt-1 truncate">
-				{item.url}
-			      </div>
-			    )}
-			    {/* СНИППЕТ - первые 200 символов текста */}
-			    {item.snippet && (
-			      <p className="text-[rgba(44,44,44,0.6)] text-sm mt-2 line-clamp-3">
-				{item.snippet}
-			      </p>
-			    )}
-			  </div>
-			))}
+                  {results.map((item, index) => (
+                    <div
+                      key={index}
+                      className="bg-white border border-[rgb(232,228,222)] shadow-sm rounded-2xl p-6 hover:shadow-md transition-shadow"
+                    >
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[rgb(30,58,95)] font-semibold text-lg hover:underline"
+                      >
+                        {item.title || item.url}
+                      </a>
+                      {item.url && (
+                        <div className="text-[rgb(45,212,168)] text-sm mt-1 truncate">
+                          {item.url}
+                        </div>
+                      )}
+                      {/* СНИППЕТ - первые 200 символов текста */}
+                      {item.snippet && (
+                        <p className="text-[rgba(44,44,44,0.6)] text-sm mt-2 line-clamp-3">
+                          {item.snippet}
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

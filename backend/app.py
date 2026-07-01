@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
-from fastapi.middleware.cors import CORSMiddleware  # <-- ДОБАВИТЬ ЭТУ СТРОКУ
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import datetime
 import logging
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Pulse Search API", version="1.0")
 
-# ДОБАВИТЬ ЭТУ СЕКЦИЮ - CORS для фронтенда
+# CORS для фронтенда
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost", "http://localhost:80", "http://127.0.0.1"],
