@@ -32,7 +32,6 @@ function HomePage() {
         // Находим последнюю синхронизацию (самый свежий сайт)
         let lastSync = "Never";
         if (sites.length > 0) {
-          // Сортируем по дате добавления
           const sorted = [...sites].sort((a, b) => 
             new Date(b.date_added) - new Date(a.date_added)
           );
@@ -60,7 +59,7 @@ function HomePage() {
           sites: sites.length,
           pages: totalPages,
           lastSync: lastSync,
-          queries: sites.length * 100 // Примерная заглушка (можно убрать или заменить)
+          queries: sites.length * 100
         });
       } catch (error) {
         console.error("Ошибка загрузки статистики:", error);
@@ -85,7 +84,6 @@ function HomePage() {
     }
   };
 
-  // Форматирование чисел (например, 1250 → 1.2K)
   const formatNumber = (num) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
@@ -123,7 +121,6 @@ function HomePage() {
       {/* Main content */}
       <main className="pt-14">
         <section className="overflow-hidden relative">
-          {/* Градиентный фон */}
           <div className="pointer-events-none absolute left-0 top-0 right-0 bottom-0">
             <div
               className="pointer-events-none absolute w-[800px] h-[400px] left-1/2 top-0 blur-3xl -translate-x-1/2 opacity-[0.06] rounded-full"
@@ -133,16 +130,13 @@ function HomePage() {
             />
           </div>
 
-          {/* Hero с поиском */}
           <div className="mx-auto relative w-full max-w-[1440px] pt-24 px-8 pb-16">
             <div className="mx-auto text-center max-w-3xl">
-              {/* Бейдж */}
               <div className="inline-flex items-center font-medium text-center mb-6 bg-white border border-[rgb(232,228,222)] shadow-sm text-[rgba(44,44,44,0.6)]/60 text-xs gap-2 leading-4 py-1 px-3 rounded-full">
                 <span className="block text-center w-1.5 h-1.5 bg-[rgb(45,212,168)] rounded-full" />
                 Site Indexing &amp; Search
               </div>
 
-              {/* Заголовок */}
               <h1
                 className="font-semibold text-center mb-4 text-[rgb(19,19,19)] text-6xl tracking-[-1.5px] leading-[60px]"
                 style={{ fontFamily: '"Space Grotesk", sans-serif' }}
@@ -158,12 +152,10 @@ function HomePage() {
                 </span>
               </h1>
 
-              {/* Описание */}
               <p className="mx-auto text-center mb-10 text-[rgba(44,44,44,0.6)]/60 text-lg leading-7 max-w-xl">
                 Instantly search across all your indexed sites. Pulse crawls, indexes, and surfaces content with precision.
               </p>
 
-              {/* Поисковая форма */}
               <div className="mx-auto text-center max-w-2xl">
                 <form onSubmit={handleSubmit} className="text-center w-full">
                   <div className="flex items-center text-center bg-white border border-[rgb(232,228,222)] shadow-sm gap-3 py-4 px-5 rounded-[20px]">
@@ -192,72 +184,75 @@ function HomePage() {
           </div>
         </section>
 
+        {/* АДАПТИВНЫЕ МЕТРИКИ — ИСПРАВЛЕННАЯ ВЕРСИЯ */}
         <section className="bg-white border-t border-b border-[rgb(232,228,222)]">
-          <div className="mx-auto w-full max-w-[1440px] py-4 px-8">
-            <div className="grid grid-cols-4 gap-0">
+          <div className="mx-auto w-full max-w-[1440px] py-4 px-4 sm:px-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-0">
+              
               {/* Sites Indexed */}
-              <div className="flex items-center gap-3 py-3 px-8">
-                <svg className="w-5 h-5 text-[rgb(45,212,168)] shrink-0" fill="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center gap-2 sm:gap-3 py-2 sm:py-3 px-3 sm:px-8 border-b border-[rgb(232,228,222)] md:border-b-0 md:border-r">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-[rgb(45,212,168)] shrink-0" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                 </svg>
                 <div>
                   <p 
-                    className="font-semibold text-[rgb(19,19,19)] text-xl leading-7"
+                    className="font-semibold text-[rgb(19,19,19)] text-base sm:text-xl leading-6 sm:leading-7"
                     style={{ fontFamily: '"Space Grotesk", sans-serif' }}
                   >
                     {loading ? "..." : formatNumber(stats.sites)}
                   </p>
-                  <p className="text-[rgba(44,44,44,0.5)]/50 text-xs leading-4">Sites Indexed</p>
+                  <p className="text-[rgba(44,44,44,0.5)] text-[10px] sm:text-xs leading-3 sm:leading-4">Sites Indexed</p>
                 </div>
               </div>
 
               {/* Pages Crawled */}
-              <div className="flex items-center border-l border-[rgb(232,228,222)] gap-3 py-3 px-8">
-                <svg className="w-5 h-5 text-[rgb(232,184,74)] shrink-0" fill="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center gap-2 sm:gap-3 py-2 sm:py-3 px-3 sm:px-8 border-b border-[rgb(232,228,222)] md:border-b-0 md:border-r">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-[rgb(232,184,74)] shrink-0" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
                 </svg>
                 <div>
                   <p 
-                    className="font-semibold text-[rgb(19,19,19)] text-xl leading-7"
+                    className="font-semibold text-[rgb(19,19,19)] text-base sm:text-xl leading-6 sm:leading-7"
                     style={{ fontFamily: '"Space Grotesk", sans-serif' }}
                   >
                     {loading ? "..." : formatNumber(stats.pages)}
                   </p>
-                  <p className="text-[rgba(44,44,44,0.5)]/50 text-xs leading-4">Pages Crawled</p>
+                  <p className="text-[rgba(44,44,44,0.5)] text-[10px] sm:text-xs leading-3 sm:leading-4">Pages Crawled</p>
                 </div>
               </div>
 
               {/* Last Sync */}
-              <div className="flex items-center border-l border-[rgb(232,228,222)] gap-3 py-3 px-8">
-                <svg className="w-5 h-5 text-[rgb(255,107,53)] shrink-0" fill="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center gap-2 sm:gap-3 py-2 sm:py-3 px-3 sm:px-8 border-[rgb(232,228,222)] md:border-r">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-[rgb(255,107,53)] shrink-0" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/>
                 </svg>
                 <div>
                   <p 
-                    className="font-semibold text-[rgb(19,19,19)] text-xl leading-7"
+                    className="font-semibold text-[rgb(19,19,19)] text-base sm:text-xl leading-6 sm:leading-7"
                     style={{ fontFamily: '"Space Grotesk", sans-serif' }}
                   >
                     {loading ? "..." : stats.lastSync}
                   </p>
-                  <p className="text-[rgba(44,44,44,0.5)]/50 text-xs leading-4">Last Sync</p>
+                  <p className="text-[rgba(44,44,44,0.5)] text-[10px] sm:text-xs leading-3 sm:leading-4">Last Sync</p>
                 </div>
               </div>
 
               {/* Search Queries */}
-              <div className="flex items-center border-l border-[rgb(232,228,222)] gap-3 py-3 px-8">
-                <svg className="w-5 h-5 text-[rgb(30,58,95)] shrink-0" fill="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center gap-2 sm:gap-3 py-2 sm:py-3 px-3 sm:px-8">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-[rgb(30,58,95)] shrink-0" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
                 </svg>
                 <div>
                   <p 
-                    className="font-semibold text-[rgb(19,19,19)] text-xl leading-7"
+                    className="font-semibold text-[rgb(19,19,19)] text-base sm:text-xl leading-6 sm:leading-7"
                     style={{ fontFamily: '"Space Grotesk", sans-serif' }}
                   >
                     {loading ? "..." : formatNumber(stats.queries)}
                   </p>
-                  <p className="text-[rgba(44,44,44,0.5)]/50 text-xs leading-4">Search Queries</p>
+                  <p className="text-[rgba(44,44,44,0.5)] text-[10px] sm:text-xs leading-3 sm:leading-4">Search Queries</p>
                 </div>
               </div>
+
             </div>
           </div>
         </section>
