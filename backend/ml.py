@@ -142,18 +142,31 @@ def calculate_tfidf(db, batch_size=100):
     
     logger.info(f"TF-IDF рассчитан для {len(pages)} страниц, словарь: {len(vocab)} слов")
 
-def search(query, db, limit=10):
-    """Поиск по запросу"""
-    # Инициализация глобальных параметров если нужно
+
+
+def search(query, db, limit=10, tfidf_threshold=0.1, sbert_min_score=0.3):
+    """Поиск по запросу с 3 сценариями ранжирования: 
+    1) Еслм ни одного токена текста запроса нет в нашем словаре, т.е. tf-idf-вектор запроса будет состоять из нулей. 
+       В этом случае tf-idf-фильтрация будет неинформативной и мы её скипаем.   
+    2) Если часть токенов текста запроса есть в словаре, а части токенов текста запроса в словаре нет. 
+       Мы ребём результат ранжирование tf-idf'ом с весом 0.3, и результат ранжирования сбертом с весом 0.7. 
+       Почему вовсе не убираем tf-idf? Чтобы подтащить наверх страницы с ключевыми словами! 
+       Потому что SBERT ловит смысл и синонимы, но нет гарантии, что страницы с попаданием по ключевым словам попадут в топ.
+    3) Если все токены запроса есть в словаре, то сначала ранжируем tf-idf'ом, а потом доранжируем сбертом. 
+       Здесь в tf-idf возможны 2 сценария (выбираем сами при запуске): 
+       *добавлен tfidf_threshold = 0.1 - это порог релевантности tf-idf'ом. 
+    """
+
+    #Инициализация глобальных параметров, если забыли инициализировать ранее: 
     if not GLOBAL_VOCABULARY:
         calculate_tfidf(db)
-    
-    # Токенизация запроса
+
+    #Токенизация запроса: 
     query_tokens = tokenize_text(query)
     if not query_tokens:
         return []
     
-    # TF-IDF вектора запроса
+    #Построение TF‑IDF вектора запроса: 
     query_vector = np.zeros(len(GLOBAL_VOCABULARY), dtype=np.float32)
     counts = Counter(query_tokens)
     total = len(query_tokens)
@@ -164,46 +177,115 @@ def search(query, db, limit=10):
         idf = math.log(GLOBAL_N_DOC / n_cur) if n_cur > 0 else 0
         query_vector[vocab_idx] = tf * idf
     
-    # Поиск похожих страниц по TF-IDF
+    #Определяем, какие токены отсутствуют в словаре: 
+    missing_tokens = [t for t in query_tokens if t not in GLOBAL_VOCABULARY]
+    #Флаг, что есть слова не из словаря: 
+    has_missing = len(missing_tokens) > 0
+    #Флаг, что в тексте запроса нет слов из словаря, т.е. вектор tf-idf запроса состоит из нулей: 
+    is_zero_vector = np.all(query_vector == 0)
+    
     pages = db.query(Page).filter(Page.tf_idf.isnot(None)).all()
+    if not pages:
+        return []
+
+    page_ids = [p.id for p in pages]
     
-    scores = []
-    for page in pages:
-        page_vector = np.array(page.tf_idf, dtype=np.float32)
-        similarity = 1 - cosine(query_vector, page_vector)
-        scores.append((similarity, page.id))
-    
-    scores.sort(reverse=True, key=lambda x: x[0])
-    top_ids = [page_id for _, page_id in scores[:limit]]
-    
-    # Доражирование SBERT
-    if top_ids:
-        sbert_model = get_sbert_model()
-        query_embedding = sbert_model.encode(query)
-        
-        sbert_scores = []
-        for page_id in top_ids:
-            page = db.query(Page).filter(Page.id == page_id).first()
-            if page and page.embedding:
-                page_embedding = np.frombuffer(page.embedding, dtype=np.float32)
-                similarity = 1 - cosine(query_embedding, page_embedding)
-                sbert_scores.append((similarity, page_id))
+    #Вспомогательная функция для расчёта TF‑IDF схожести: 
+    def calc_tfidf_similarities(q_vec, page_list):
+        sims = []
+        q_norm = np.linalg.norm(q_vec)
+        for page in page_list:
+            p_vec = np.array(page.tf_idf, dtype=np.float32)
+            p_norm = np.linalg.norm(p_vec)
+            if q_norm == 0 or p_norm == 0:
+                sim = 0.0
             else:
-                sbert_scores.append((0, page_id))
-        
-        sbert_scores.sort(reverse=True, key=lambda x: x[0])
-        final_ids = [page_id for _, page_id in sbert_scores]
-        
-        # Обновляем релевантность
-        for idx, (score, page_id) in enumerate(sbert_scores):
-            page = db.query(Page).filter(Page.id == page_id).first()
-            if page:
-                page.relevantnost = score
-        db.commit()
-        
-        return final_ids
+                sim = 1 - cosine(q_vec, p_vec)
+            sims.append((sim, page.id))
+        return sims
     
-    return top_ids
+    candidate_ids = []
+    tfidf_scores = []
+    
+    #Сценарий 1: вектор TF‑IDF состоит только из нулей --> сразу все кандидаты (без порога)
+    if is_zero_vector:
+        candidate_ids = page_ids[:]  #все страницы с tf_idf
+    
+    else:
+        #Считаем TF‑IDF схожесть один раз для всех страниц: 
+        tfidf_scores = calc_tfidf_similarities(query_vector, pages)
+        
+        #Сценарий 2: не все токены в словаре --> смешанное взвешивание (берём всех для весов): 
+        if has_missing:
+            #Для взвешивания нужны оценки по всем кандидатам, поэтому берём все страницы: 
+            candidate_ids = page_ids[:]
+        
+        #Сценарий 3: все токены есть в словаре --> отбор по порогу + добивка до limit. 
+        #Иногда порог релевантности 0.1 отсекает почти всё, SBERT'ом можно найти синонимы. 
+        #Добивка позволяет вернуть хоть какие‑то дополнительные страницы, даже если их TF‑IDF‑оценка ниже порога.
+        else:
+            filtered = [(s, pid) for s, pid in tfidf_scores if s > tfidf_threshold]
+            if len(filtered) < limit:
+                remaining = [(s, pid) for s, pid in tfidf_scores if s <= tfidf_threshold]
+                remaining.sort(reverse=True, key=lambda x: x[0])
+                needed = limit - len(filtered)
+                filtered += remaining[:needed]
+            candidate_ids = [pid for _, pid in filtered[:limit]]
+    
+    if not candidate_ids:
+        return []
+    
+    #Загрузка страниц одним запросом (оптимизация SQLAlchemy): 
+    pages_by_id = {p.id: p for p in db.query(Page).filter(Page.id.in_(candidate_ids)).all()}
+    
+    #Доранжирование через SBERT
+    sbert_model = get_sbert_model()
+    query_embedding = sbert_model.encode(query)
+    q_emb_norm = np.linalg.norm(query_embedding)
+    
+    sbert_scores = []
+    for page_id in candidate_ids:
+        page = pages_by_id.get(page_id)
+        if page and page.embedding:
+            page_embedding = np.frombuffer(page.embedding, dtype=np.float32)
+            p_emb_norm = np.linalg.norm(page_embedding)
+            if q_emb_norm == 0 or p_emb_norm == 0:
+                sim = 0.0
+            else:
+                sim = 1 - cosine(query_embedding, page_embedding)
+            sbert_scores.append((sim, page_id))
+        else:
+            sbert_scores.append((0.0, page_id))
+    
+    #Если сработал сценарий 2 (не все токены в словаре), применяем веса:
+    if not is_zero_vector and has_missing:
+        tf_map = {pid: score for score, pid in tfidf_scores}
+        weighted_scores = []
+        for sbert_sim, page_id in sbert_scores:
+            tf_sim = tf_map.get(page_id, 0.0)
+            final_score = 0.3 * tf_sim + 0.7 * sbert_sim
+            weighted_scores.append((final_score, page_id))
+        sbert_scores = weighted_scores
+    
+    #Финальная сортировка: 
+    #Оставляем только кандидатов с score >= порога
+    filtered_sbert = [(score, page_id) for score, page_id in sbert_scores if score >= sbert_min_score]
+    #Сортируем отфильтрованных кандидатов по убыванию score
+    filtered_sbert.sort(reverse=True, key=lambda x: x[0])
+    final_ids = [page_id for _, page_id in filtered_sbert[:20]]
+    
+    #Сохранение оценок релевантности в БД
+    for score, page_id in filtered_sbert:
+        page = pages_by_id.get(page_id)
+        if page:
+            page.relevantnost = score
+    db.commit()
+    
+    return final_ids
+
+
+
+
 
 def compute_embeddings(db, batch_size=50):
     """Вычисляет SBERT эмбеддинги для всех страниц"""
